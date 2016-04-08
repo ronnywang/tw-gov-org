@@ -27,6 +27,21 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
             $ret->{'法源位階'} = '憲法';
         } elseif (strpos($content, '職系')) {
             //tODO
+        } elseif (strpos($content, '本部之次級機關及其業務如下') !== false) {
+            $list = explode('本部之次級機關及其業務如下：', $content)[1];
+            $lines = split("。", preg_replace("#\s+#", '', $list));
+            foreach ($lines as $line) {
+                if (trim($line) == '') {
+                    continue;
+                }
+                if (preg_match('#.*、(.*)：(.*)$#u', $line, $matches)) {
+                    $ret->{'子單位'}[] = $matches[1];
+                    if (!$ret->{'子單位掌理'}) {
+                        $ret->{'子單位掌理'} = new StdClass;
+                    }
+                    $ret->{'子單位掌理'}->{$matches[1]} = array($matches[2]);
+                }
+            }
         } elseif (strpos($content, '設下列')) {
             $lines = split("\n", $content);
             foreach ($lines as $line) {
@@ -81,10 +96,7 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
                 $ret->{'人事'}[] = $ret2;
             }
         } elseif (preg_match('#^(.*)掌理(.*)。#', $content, $matches) and in_array($matches[1], $ret->{'子單位'})) {
-            $ret2 = new StdClass;
-            $ret2->{'單位'} = $matches[1];
-            $ret2->{'掌理事項'} = array($matches[2]);
-            $ret->{'子單位掌理'}[] = $ret2;
+            $ret->{'子單位掌理'}->{$matches[1]} = array($matches[2]);
         } elseif (strpos($content, '掌理下列事項：')) {
             continue;
             $lines = split("\n", $content);
@@ -104,7 +116,7 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
                 print_r($line);
                 exit;
             }
-            $ret->{'子單位掌理'}[] = $ret2;
+            $ret->{'子單位掌理'}->{$ret2->{'單位'}} = $ret2->{'掌理事項'};
         } elseif (preg_match('#以依法選出之(.*)組織之#', $content, $matches)) {
             $ret->{'人員進入方式'} = '依法選出';
             $ret->{'人員種類'} = $matches[1];
@@ -118,6 +130,12 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
             exit;
         }
     }
+    if (!json_encode($ret)) {
+        var_dump($ret);
+        exit;
+    }
     $units->{$unit} = $ret;
 }
 echo json_encode($units, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+$error = json_last_error();
+var_dump($error);
