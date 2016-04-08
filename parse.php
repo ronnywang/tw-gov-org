@@ -42,7 +42,7 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
                 print_r($line);
                 exit;
             }
-        } elseif (preg_match('#^' . $match_unit . '設([^。]+)。$#u', trim($content), $matches)) {
+        } elseif (preg_match('#^' . $match_unit . '設([^。]+[^人])。$#u', trim($content), $matches)) {
             foreach (explode('及', $matches[2]) as $sub_unit) {
                 $ret->{'子單位'}[] = $sub_unit;
             }
@@ -61,7 +61,7 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
                         }
                         $ret2->{'人數'} = $matches[4];
                         continue;
-                    } elseif (preg_match('#^' . $match_unit . '設(.*)$#', $term, $matches)) {
+                    } elseif (preg_match('#^' . $match_unit . '設(.*[^人])$#u', $term, $matches)) {
                         $ret2->{'單位'} = $matches[2];
                         $ret->{'子單位'}[] = $matches[2];
                     } elseif (preg_match('#^(.*?)(([一二三四五六七八九十]+人至)?[一二三四五六七八九十]+人)$#u', $term, $matches)) {
@@ -120,4 +120,4 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
     }
     $units->{$unit} = $ret;
 }
-echo json_encode($units, JSON_UNESCAPED_UNICODE);
+echo json_encode($units, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
