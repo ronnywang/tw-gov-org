@@ -10,13 +10,20 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
         continue;
     }
 
-    if (strpos($law_dom->getElementsByTagName('法規類別')->item(0)->nodeValue, '停止適用')) {
+    $law_type = $law_dom->getElementsByTagName('法規類別')->item(0)->nodeValue;
+    if (strpos($law_type, '停止適用') or strpos($law_type, '廢止')) {
         continue;
     }
-    $match_unit = "({$unit}|本會)";
     preg_match('#^(.*)組織#', $name, $matches);
     $ret = new StdClass;
     $ret->{'單位'} = $unit = str_replace('中華民國', '', $matches[1]);
+    if (in_array($unit, array(
+        '行政院主計處',
+        '行政院主計處電子處理資料中心',
+    ))) {
+    continue;
+    }
+    $match_unit = "({$unit}|本會|本局得|本局)";
 
     foreach ($law_dom->getElementsByTagName('條文') as $rule_dom) {
         $no = $rule_dom->getElementsByTagName('條號')->item(0)->nodeValue;
@@ -42,6 +49,10 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
                     $ret->{'子單位掌理'}->{$matches[1]} = array($matches[2]);
                 }
             }
+        } elseif (preg_match('#交通部設(.*)等(.*)港務局#', $content, $matches)) {
+            foreach (explode('、', $matches[1]) as $locate) {
+                $ret->{'子單位'}[] = $locate . '港務局';
+            }
         } elseif (strpos($content, '設下列')) {
             $lines = split("\n", $content);
             foreach ($lines as $line) {
@@ -57,8 +68,9 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
                 print_r($line);
                 exit;
             }
-        } elseif (preg_match('#^' . $match_unit . '設([^。]+[^人])。$#u', trim($content), $matches)) {
-            foreach (explode('及', $matches[2]) as $sub_unit) {
+        } elseif (preg_match("#^{$match_unit}設([^。，]+[^人])[。，]#u", trim($content), $matches)) {
+            $matches[2] = explode('；', $matches[2])[0];
+            foreach (preg_split('#[及、]#u', $matches[2]) as $sub_unit) {
                 $ret->{'子單位'}[] = $sub_unit;
             }
         } elseif (preg_match('#置(.*)[一二三四五六七八九十]人#u', $content)) {
@@ -71,7 +83,7 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
                 foreach (explode('，', $line) as $term) {
                     if (preg_match('#^' . $match_unit . '?(.*)置(.*?)(([一二三四五六七八九十]+人至)?[一二三四五六七八九十]+人)$#u', $term, $matches)) {
                         $ret2->{'職稱'} = $matches[3];
-                        if ($matches[1]) {
+                        if ($matches[2]) {
                             $ret2->{'種類'} = $matches[2];
                         }
                         $ret2->{'人數'} = $matches[4];
@@ -82,7 +94,7 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
                     } elseif (preg_match('#^(.*?)(([一二三四五六七八九十]+人至)?[一二三四五六七八九十]+人)$#u', $term, $matches)) {
                         $ret2->{'職稱'} = $matches[1];
                         $ret2->{'人數'} = $matches[2];
-                    } elseif (strpos($term, '特任') !== false or strpos($term, '簡任') !== false or strpos($term, '薦任') !== false or strpos($term, '委任') !== false) {
+                    } elseif (strpos($term, '特任') !== false or strpos($term, '簡任') !== false or strpos($term, '薦任') !== false or strpos($term, '委任') !== false or strpos($term, '專任') !== false) {
                         $ret2->{'任命方式'}[] = $term;
                         continue;
                     } else {
