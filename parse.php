@@ -138,4 +138,3 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
 }
 echo json_encode($units, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 $error = json_last_error();
-var_dump($error);
