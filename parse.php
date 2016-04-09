@@ -16,7 +16,10 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
     }
     preg_match('#^(.*)組織#', $name, $matches);
     $ret = new StdClass;
-    $ret->{'單位'} = $unit = str_replace('中華民國', '', $matches[1]);
+    $unit = str_replace('中華民國', '', $matches[1]);
+    $unit = str_replace('臺', '台', $unit);
+    $ret->{'單位'} = $unit;
+
     if (in_array($unit, array(
         '行政院主計處',
         '行政院主計處電子處理資料中心',
@@ -28,12 +31,20 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
     foreach ($law_dom->getElementsByTagName('條文') as $rule_dom) {
         $no = $rule_dom->getElementsByTagName('條號')->item(0)->nodeValue;
         $content = trim($rule_dom->getElementsByTagName('條文內容')->item(0)->nodeValue);
-        if (preg_match('#本法依(.*)制定之#', $content, $matches)) {
+        $content = str_replace('(', '（', $content);
+        $content = str_replace(')', '）', $content);
+        $content = str_replace('臺', '台', $content);
+        $content = str_replace('︰', '：', $content);
+        $content = preg_replace('#\s+#', '', $content);
+
+        if (preg_match('#([^，]+)為(.*)，特設([^（]*)(（以下簡稱(.*)）)?(，為相當.*)?。#u', preg_replace('#\s+#', '', $content), $matches)) {
+            $ret->{'母單位'} = $matches[1];
+            $ret->{'成立目的'} = $matches[2];
+            $match_unit = "({$unit}|{$matches[5]})";
+        } elseif (preg_match('#本法依(.*)制定之#', $content, $matches)) {
             $ret->{'法源依據'} = $matches[1];
         } elseif (strpos($content, '行使憲法所賦予之職權') or strpos($content, '依據憲法行使職權')) {
             $ret->{'法源位階'} = '憲法';
-        } elseif (strpos($content, '職系')) {
-            //tODO
         } elseif (strpos($content, '本部之次級機關及其業務如下') !== false) {
             $list = explode('本部之次級機關及其業務如下：', $content)[1];
             $lines = split("。", preg_replace("#\s+#", '', $list));
@@ -53,24 +64,19 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
             foreach (explode('、', $matches[1]) as $locate) {
                 $ret->{'子單位'}[] = $locate . '港務局';
             }
-        } elseif (strpos($content, '設下列')) {
-            $lines = split("\n", $content);
+        } elseif (strpos($content, '設下列') or strpos($content, '設左列')) {
+            $content = explode('：', $content, 2)[1];
+            $lines = split("。", $content);
+
             foreach ($lines as $line) {
-                if (strpos($line, '設下列')) {
-                    continue;
-                }
                 if (strpos($line, '、')) {
                     $ret->{'子單位'}[] = explode('。', explode('、', $line)[1])[0];
                     continue;
                 }
-                continue;
-                echo 'line';
-                print_r($line);
-                exit;
             }
-        } elseif (preg_match("#^{$match_unit}設([^。，]+[^人])[。，]#u", trim($content), $matches)) {
-            $matches[2] = explode('；', $matches[2])[0];
-            foreach (preg_split('#[及、]#u', $matches[2]) as $sub_unit) {
+        } elseif (preg_match("#^{$match_unit}(因應業務需要，得)?設([^。，]+[^人])[。，]#u", trim(preg_replace('#\s+#', '', $content)), $matches)) {
+            $matches[3] = explode('；', $matches[3])[0];
+            foreach (preg_split('#[及、]#u', $matches[3]) as $sub_unit) {
                 $ret->{'子單位'}[] = $sub_unit;
             }
         } elseif (preg_match('#置(.*)[一二三四五六七八九十]人#u', $content)) {
@@ -101,34 +107,51 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
                         $ret2->{'事項'}[] = $term;
                     }
                 }
-                if (!$ret2->{'職稱'}) {
+                if (!property_exists($ret2, '職稱')) {
                     // TODO
                     continue;
                 }
                 $ret->{'人事'}[] = $ret2;
             }
-        } elseif (preg_match('#^(.*)掌理(.*)。#', $content, $matches) and in_array($matches[1], $ret->{'子單位'})) {
-            $ret->{'子單位掌理'}->{$matches[1]} = array($matches[2]);
         } elseif (strpos($content, '掌理下列事項：')) {
-            continue;
-            $lines = split("\n", $content);
+            if (preg_match('#\s*（以下簡稱(.*)）\s*#', $content, $matches)) {
+                $match_unit = "({$unit}|{$matches[1]})";
+                $content = str_replace($matches[0], '', $content);
+            }
+            $lines = split("。", $content);
             $ret2 = new StdClass;
             $ret2->{'掌理事項'} = array();
             foreach ($lines as $line) {
                 if (preg_match('#^(.*)掌理下列事項#', $line, $matches)) {
-                    $ret2->{'單位'} = $matches[1];
+                    $ret2->{'單位'} = str_replace('，', '', $matches[1]);
                     continue;
                 }
 
                 if (strpos($line, '、')) {
-                    $ret2->{'掌理事項'}[] = explode('。', explode('、', $line)[1])[0];
+                    $ret2->{'掌理事項'}[] = explode('。', explode('、', $line, 2)[1])[0];
                     continue;
                 }
-                echo 'line';
-                print_r($line);
-                exit;
+                continue;
             }
-            $ret->{'子單位掌理'}->{$ret2->{'單位'}} = $ret2->{'掌理事項'};
+            if (preg_match('#^' . $match_unit . '$#', $ret2->{'單位'})) {
+                $ret->{'掌理事項'} = $ret2->{'掌理事項'};
+            } else {
+                if (!property_exists($ret, '子單位掌理')) {
+                    $ret->{'子單位掌理'} = new StdClass;
+                }
+                if (property_exists($ret2, '單位')) {
+                    $ret->{'子單位掌理'}->{$ret2->{'單位'}} = $ret2->{'掌理事項'};
+                }
+            }
+        } elseif (strpos($content, '隸屬於' . $unit)) {
+            // 中央研究院、國史館、國父陵園管理委員會隸屬於總統府，其組織均另以法律定之
+            preg_match('#^(.*)隸屬於#', $content, $matches);
+            foreach (explode('、', $matches[1]) as $n) {
+                $ret->{'子單位'}[] = $n;
+            }
+
+        } elseif (property_exists($ret, '子單位') and preg_match('#^(.*)掌理(.*)。#', $content, $matches) and in_array($matches[1], $ret->{'子單位'})) {
+            $ret->{'子單位掌理'}->{$matches[1]} = array($matches[2]);
         } elseif (preg_match('#以依法選出之(.*)組織之#', $content, $matches)) {
             $ret->{'人員進入方式'} = '依法選出';
             $ret->{'人員種類'} = $matches[1];
