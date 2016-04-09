@@ -19,6 +19,8 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
     $unit = str_replace('中華民國', '', $matches[1]);
     $unit = str_replace('臺', '台', $unit);
     $ret->{'單位'} = $unit;
+    $ret->{'法規網址'} = $law_dom->getElementsByTagName('法規網址')->item(0)->nodeValue;
+    $ret->{'法規名稱'} = $law_dom->getElementsByTagName('法規名稱')->item(0)->nodeValue;
 
     if (in_array($unit, array(
         '行政院主計處',
