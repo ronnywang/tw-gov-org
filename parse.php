@@ -36,8 +36,10 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
         $content = str_replace('臺', '台', $content);
         $content = str_replace('︰', '：', $content);
         $content = preg_replace('#\s+#', '', $content);
+        $content = preg_replace('#^台灣地區設立#', '', $content);
 
         if (preg_match('#([^，]+)為(.*)，特?設([^（]*)(（以下簡稱(.*)）)?(，為相當.*)?。#u', preg_replace('#\s+#', '', $content), $matches) and !preg_match("#^{$match_unit}$#", $matches[1])) {
+            $matches[1] = preg_replace('#（以下簡稱.*）#', '', $matches[1]);
             $ret->{'母單位'} = $matches[1];
             $ret->{'成立目的'} = $matches[2];
             $match_unit = "({$unit}|{$matches[5]})";
