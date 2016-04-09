@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>政府組織解析器</title>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/css/bootstrap.css">
+</head>
+<body>
+<div class="container">
+    <div class="row">
+        <div class="row">
+            <div class="col-md-4">
+                請輸入組織名稱: <input type="text" id="name"><br>
+                <ol id="unit-list"></ol>
+            </div>
+            <div class="col-md-8"><pre id="result"></pre></div>
+        </div>
+</div>
+<script>
+var unit_records;
+$.get('output.json', function(ret){
+        unit_records = ret;
+        refresh_list();
+});
+
+var refresh_list = function(){
+    $('#unit-list').html('');
+    str = '';
+    if ($('#name').val()) {
+        str = $('#name').val();
+    }
+    for (var id in unit_records) {
+        if (!str || id.match(str)) {
+            $('#unit-list').append($('<li>').append($('<a>').addClass('unit-link').attr('href', '#').data('id', id).text(id)));
+        }
+    }
+};
+
+$('#unit-list').on('click', '.unit-link', function(e){
+    e.preventDefault();
+    $('#result').text(JSON.stringify(unit_records[$(this).data('id')], true, 2));
+});
+
+$('#name').keyup(refresh_list);
+</script>
+</body>
+</html> 
