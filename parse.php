@@ -37,7 +37,7 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
         $content = str_replace('︰', '：', $content);
         $content = preg_replace('#\s+#', '', $content);
 
-        if (preg_match('#([^，]+)為(.*)，特?設([^（]*)(（以下簡稱(.*)）)?(，為相當.*)?。#u', preg_replace('#\s+#', '', $content), $matches)) {
+        if (preg_match('#([^，]+)為(.*)，特?設([^（]*)(（以下簡稱(.*)）)?(，為相當.*)?。#u', preg_replace('#\s+#', '', $content), $matches) and !preg_match("#^{$match_unit}$#", $matches[1])) {
             $ret->{'母單位'} = $matches[1];
             $ret->{'成立目的'} = $matches[2];
             $match_unit = "({$unit}|{$matches[5]})";
@@ -69,8 +69,14 @@ foreach ($doc->getElementsByTagName('法規') as $law_dom) {
             $lines = split("。", $content);
 
             foreach ($lines as $line) {
-                if (strpos($line, '、')) {
-                    $ret->{'子單位'}[] = explode('。', explode('、', $line)[1])[0];
+                if (preg_match('#^[一二三四五六七八九十]+、#u', $line)) {
+                    $value = explode('。', explode('、', $line, 2)[1])[0];
+                    if (strpos($value, '：')) {
+                        $ret->{'子單位'}[] = explode('：', $value)[0];
+                        $ret->{'子單位掌理'}->{explode('：', $value)[0]} = explode('：', $value)[1];
+                    } else {
+                        $ret->{'子單位'}[] = $value;
+                    }
                     continue;
                 }
             }
